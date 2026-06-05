@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dots and Boxes - Sandbox</title>
+    <!-- Tailwind CSS para el estilado rápido y moderno -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Ajustes finos para la cuadrícula y las líneas */
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            grid-template-rows: repeat(6, minmax(0, 1fr));
+        }
+        .dot {
+            width: 12px;
+            height: 12px;
+            transform: translate(-6px, -6px);
+        }
+        /* Hitboxes invisibles pero amplias para que sea fácil tocar en móviles */
+        .edge-h { height: 14px; transform: translateY(-7px); }
+        .edge-v { width: 14px; transform: translateX(-7px); }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans">
+
+    <!-- Encabezado / Selector de colores de referencia -->
+    <header class="text-center mb-8">
+        <h1 class="text-4xl font-extrabold tracking-wider text-transparent bg-clip-text bg-gradient-to-r fancy-text from-amber-400 to-violet-500 mb-2">
+            Dots & Boxes
+        </h1>
+        <p class="text-xs text-slate-400 uppercase tracking-widest">Tablero Libre (Sandbox)</p>
+        
+        <!-- Referencia de Jugadores (Solo estética, la lógica la llevan ustedes) -->
+        <div class="flex gap-6 justify-center mt-4 text-sm">
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
+                <span>Jugador 1</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="w-4 h-4 rounded bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.5)]"></div>
+                <span>Jugador 2</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Contenedor Principal del Tablero -->
+    <!-- Una grilla de 6x6 puntos genera 5x5 cajas (cangilones de 1x1) -->
+    <main class="relative bg-slate-800/50 border border-slate-700/50 p-8 rounded-2xl shadow-2xl backdrop-blur-sm select-none">
+        
+        <!-- 1. Capa de Cajas (Boxes) -->
+        <div id="boxes-layer" class="grid grid-cols-5 grid-rows-5 gap-0 w-[300px] h-[300px] sm:w-[400px] sm:h-[400px]">
+            <!-- Generado dinámicamente por JS -->
+        </div>
+
+        <!-- 2. Capa de Aristas (Edges) Líneas horizontales y verticales -->
+        <div id="edges-layer" class="absolute top-8 left-8 right-8 bottom-8 pointer-events-none">
+            <!-- Generado dinámicamente por JS -->
+        </div>
+
+        <!-- 3. Capa de Puntos (Dots) solo visual -->
+        <div id="dots-layer" class="absolute top-8 left-8 right-8 bottom-8 pointer-events-none">
+            <!-- Generado dinámicamente por JS -->
+        </div>
+
+    </main>
+
+    <!-- Botón de Reinicio Rápido -->
+    <footer class="mt-8">
+        <button id="reset-btn" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 hover:text-white font-medium text-sm rounded-lg border border-slate-700 transition-all duration-150 shadow-md">
+            Reiniciar Tablero
+        </button>
+    </footer>
+
+    <!-- Lógica del Tablero Sandbox -->
+    <script>
+        const SIZE = 6; // Grilla de 6x6 puntos
+        const BOX_SIZE = SIZE - 1; // 5x5 Cajas
+
+        const boxesLayer = document.getElementById('boxes-layer');
+        const edgesLayer = document.getElementById('edges-layer');
+        const dotsLayer = document.getElementById('dots-layer');
+        const resetBtn = document.getElementById('reset-btn');
+
+        // Inicializar el Tablero
+        function initGame() {
+            boxesLayer.innerHTML = '';
+            edgesLayer.innerHTML = '';
+            dotsLayer.innerHTML = '';
+
+            // --- 1. GENERAR CAJAS (Interactivas: cambia color de fondo: empty -> p1: Naranja -> p2: Violeta) ---
+            for (let i = 0; i < BOX_SIZE * BOX_SIZE; i++) {
+                const box = document.createElement('div');
+                box.className = 'border border-transparent transition-all duration-300 cursor-pointer rounded-sm m-[2px] bg-slate-800/30 hover:bg-slate-700/20';
+                box.dataset.state = 'empty';
+
+                box.addEventListener('click', () => {
+                    if (box.dataset.state === 'empty') {
+                        box.dataset.state = 'p1';
+                        box.className = 'border border-transparent transition-all duration-300 cursor-pointer rounded-sm m-[2px] bg-amber-500/40 shadow-[inset_0_0_15px_rgba(245,158,11,0.3)] border-amber-500/30';
+                    } else if (box.dataset.state === 'p1') {
+                        box.dataset.state = 'p2';
+                        box.className = 'border border-transparent transition-all duration-300 cursor-pointer rounded-sm m-[2px] bg-violet-500/40 shadow-[inset_0_0_15px_rgba(139,92,246,0.3)] border-violet-500/30';
+                    } else {
+                        box.dataset.state = 'empty';
+                        box.className = 'border border-transparent transition-all duration-300 cursor-pointer rounded-sm m-[2px] bg-slate-800/30 hover:bg-slate-700/20';
+                    }
+                });
+                boxesLayer.appendChild(box);
+            }
+
+            // --- 2. GENERAR ARISTAS (Horizontales y Verticales con Hitboxes amplios) ---
+            const pct = 100 / (SIZE - 1);
+
+            // Aristas Horizontales
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < BOX_SIZE; c++) {
+                    const edge = document.createElement('div');
+                    edge.className = 'absolute edge-h cursor-pointer pointer-events-auto transition-all duration-200';
+                    edge.style.top = `${r * pct}%`;
+                    edge.style.left = `${c * pct}%`;
+                    edge.style.width = `${pct}%`;
+                    
+                    const line = document.createElement('div');
+                    line.className = 'w-full h-[3px] bg-slate-700/40 rounded mt-[5px] transition-all duration-200';
+                    edge.appendChild(line);
+
+                    setupEdgeToggle(edge, line);
+                    edgesLayer.appendChild(edge);
+                }
+            }
+
+            // Aristas Verticales
+            for (let r = 0; r < BOX_SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    const edge = document.createElement('div');
+                    edge.className = 'absolute edge-v cursor-pointer pointer-events-auto transition-all duration-200';
+                    edge.style.top = `${r * pct}%`;
+                    edge.style.left = `${c * pct}%`;
+                    edge.style.height = `${pct}%`;
+
+                    const line = document.createElement('div');
+                    line.className = 'h-full w-[3px] bg-slate-700/40 rounded ml-[5px] transition-all duration-200';
+                    edge.appendChild(line);
+
+                    setupEdgeToggle(edge, line);
+                    edgesLayer.appendChild(edge);
+                }
+            }
+
+            // --- 3. GENERAR PUNTOS ESTÁTICOS ---
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    const dot = document.createElement('div');
+                    dot.className = 'absolute dot bg-slate-400 rounded-full shadow-[0_0_4px_rgba(255,255,255,0.3)]';
+                    dot.style.top = `${r * pct}%`;
+                    dot.style.left = `${c * pct}%`;
+                    dotsLayer.appendChild(dot);
+                }
+            }
+        }
+
+        function setupEdgeToggle(edgeContainer, lineElement) {
+            edgeContainer.dataset.active = "false";
+            edgeContainer.addEventListener('click', () => {
+                if (edgeContainer.dataset.active === "false") {
+                    edgeContainer.dataset.active = "true";
+                    lineElement.className = 'w-full h-full bg-slate-300 rounded shadow-[0_0_8px_rgba(255,255,255,0.5)]';
+                } else {
+                    edgeContainer.dataset.active = "false";
+                    if (edgeContainer.classList.contains('edge-h')) {
+                        lineElement.className = 'w-full h-[3px] bg-slate-700/40 rounded mt-[5px] transition-all duration-200';
+                    } else {
+                        lineElement.className = 'h-full w-[3px] bg-slate-700/40 rounded ml-[5px] transition-all duration-200';
+                    }
+                }
+            });
+        }
+
+        resetBtn.addEventListener('click', initGame);
+        initGame();
+    </script>
+</body>
+</html>
